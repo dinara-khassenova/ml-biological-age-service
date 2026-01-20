@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  app:
+    build: ./app                    
+    image: ml-service-app:latest
+    container_name: ml-service-app
+    restart: unless-stopped
+    env_file:
+      - ./app/.env                  
+    volumes:
+      - ./app:/app                  
+    environment:
+      - PYTHONPATH=/app             
+    networks:
+      - ml-service-network
+    depends_on:
+      - rabbitmq
+      - postgres
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  nginx:
+    image: nginx:latest
+    container_name: ml-service-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - ml-service-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ml-service-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    volumes:
+      - ./data/rabbitmq:/var/lib/rabbitmq
+    networks:
+      - ml-service-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ml-service-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ml_service_db
+      POSTGRES_USER: ml_service_user
+      POSTGRES_PASSWORD: ml_service_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - ml-service-network
+
+networks:
+  ml-service-network:
+    name: ml-service-network
+    driver: bridge

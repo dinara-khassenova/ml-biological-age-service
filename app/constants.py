@@ -1,0 +1,6 @@
+# ====== Константы/допустимые значения ======
+
+TASK_STATUSES = {"CREATED", "VALIDATED", "PROCESSING", "DONE", "FAILED"}
+TX_TYPES = {"TOPUP", "CHARGE"}
+USER_ROLES = {"USER", "ADMIN"}
+FACTOR_GROUPS = {"NEGATIVE", "NEUTRAL", "POSITIVE"}
