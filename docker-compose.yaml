@@ -42,12 +42,12 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: ml-service-rabbitmq
-    restart: unless-stopped
+    restart: on-failure
     ports:
       - "15672:15672"
       - "5672:5672"
     volumes:
-      - ./data/rabbitmq:/var/lib/rabbitmq
+      - rabbitmq_volume:/var/lib/rabbitmq
     networks:
       - ml-service-network
 
@@ -62,7 +62,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres_volume:/var/lib/postgresql/data
     networks:
       - ml-service-network
 
@@ -70,3 +70,7 @@ networks:
   ml-service-network:
     name: ml-service-network
     driver: bridge
+
+volumes:                                    
+  postgres_volume:
+  rabbitmq_volume:
