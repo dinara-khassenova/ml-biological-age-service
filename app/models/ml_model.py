@@ -1,12 +1,60 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from __future__ import annotations
 
-from ml.base import Validator, Predictor
-from ml.validators import BioAgeDataValidator
-from ml.predictors import BioAgePredictorStub
-from models.validation import ValidationError
-from models.assessment import AssessmentResult
+from typing import List, Optional
 
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import SQLModel, Field
+
+
+class MLModel(SQLModel, table=True):
+    """
+    ML модель (метаданные), которая хранится в БД.
+
+    Храним только то, что должно жить в БД:
+    - id
+    - name
+    - price_per_task
+    - feature_names (список признаков)
+    """
+
+    __tablename__ = "ml_models"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    name: str = Field(
+        ...,
+        index=True,
+        min_length=1,
+        max_length=100,
+    )
+
+    price_per_task: int = Field(default=25, gt=0)
+
+    feature_names: List[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSONB, nullable=False),
+    )
+
+    def __str__(self) -> str:
+        return f"MLModel(id={self.id}, name={self.name}, price={self.price_per_task})"
+
+    def validate_meta(self) -> bool:
+        """
+        Валидация метаданных.
+        """
+        if not self.feature_names:
+            raise ValueError("feature_names не должен быть пустым")
+        if self.price_per_task <= 0:
+            raise ValueError("price_per_task должен быть > 0")
+        return True
+
+    class Config:
+        validate_assignment = True
+        arbitrary_types_allowed = True
+
+
+'''
 @dataclass
 class MLModel:
     """
@@ -40,3 +88,4 @@ class MLModel:
     def predict(self, answers: Dict[str, Any]) -> AssessmentResult:
         """Делегирует предсказание предиктору модели."""
         return self.predictor.predict(answers)
+'''

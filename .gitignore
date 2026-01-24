@@ -11,9 +11,6 @@ data/
 postgres/
 rabbitmq/
 
-# Environment variables
-.env
-
 # IDE
 .idea/
 .vscode/
