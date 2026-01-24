@@ -6,6 +6,11 @@ __pycache__/
 .venv/
 venv/
 
+# Data directories
+data/
+postgres/
+rabbitmq/
+
 # Environment variables
 .env
 
