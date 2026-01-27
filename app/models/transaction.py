@@ -3,7 +3,7 @@ from typing import Optional, TYPE_CHECKING
 
 from sqlmodel import SQLModel, Field, Relationship
 
-from constants import TX_TYPES
+from models.enum import TransactionType
 
 if TYPE_CHECKING:
     from models.user import User
@@ -28,7 +28,7 @@ class Transaction(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    tx_type: str = Field(index=True, max_length=16)
+    tx_type: TransactionType = Field(index=True)
     amount: int = Field(gt=0)
     task_id: Optional[int] = Field(default=None, foreign_key="assessment_tasks.id")
     created_at: datetime = Field(
@@ -49,24 +49,14 @@ class Transaction(SQLModel, table=True):
     def __str__(self) -> str:
         return f"Tx(id={self.id}, user_id={self.user_id}, type={self.tx_type}, amount={self.amount}, task_id={self.task_id})"
 
-    def validate_tx_type(self) -> bool:
-        """
-        Validate transaction type.
-
-        Raises:
-            ValueError: if tx_type is invalid
-        """
-        if self.tx_type not in TX_TYPES:
-            raise ValueError(f"Некорректный тип транзакции: {self.tx_type}")
-        return True
-
+    
     @property
     def is_charge(self) -> bool:
-        return self.tx_type == "CHARGE"
+        return self.tx_type == TransactionType.CHARGE
 
     @property
     def signed_amount(self) -> int:
-        return -self.amount if self.tx_type == "CHARGE" else self.amount
+        return -self.amount if self.tx_type == TransactionType.CHARGE else self.amount
 
     class Config:
         """Model configuration"""

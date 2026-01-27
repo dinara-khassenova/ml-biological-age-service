@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from sqlmodel import Session
 
-from constants import USER_ROLES
+from models.enum import UserRole
 from models.user import User
 from models.wallet import Wallet
 
 from services.crud import user as user_crud
-from services.crud import wallet as wallet_crud
 
 
 class RegAuthService:
@@ -18,13 +17,11 @@ class RegAuthService:
     def __init__(self, session: Session):
         self.session = session
 
-    def register(self, email: str, password: str, role: str = "USER") -> User:
+    def register(self, email: str, password: str, role: UserRole = UserRole.USER) -> User:
         email_norm = email.strip().lower()
 
         if len(password) < 8:
             raise ValueError("Пароль должен быть не короче 8 символов")
-        if role not in USER_ROLES:
-            raise ValueError("Некорректная роль")
 
         existing = user_crud.get_user_by_email(email_norm, self.session)
         if existing is not None:
@@ -35,14 +32,12 @@ class RegAuthService:
 
             if hasattr(user, "validate_email"):
                 user.validate_email()
-            if hasattr(user, "validate_role"):
-                user.validate_role()
 
             # ⬇️ ВАЖНО: НЕ коммитим внутри crud
             self.session.add(user)
             self.session.flush()  # получаем user.id
 
-            if role == "USER":
+            if role == UserRole.USER: 
                 wallet = Wallet(user_id=user.id, balance=0)
                 self.session.add(wallet)
 

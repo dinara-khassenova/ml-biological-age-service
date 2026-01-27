@@ -6,8 +6,6 @@ from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
 from models.transaction import Transaction
-from models.user import User
-from models.assessment import AssessmentTask
 
 
 def get_transaction_by_id(tx_id: int, session: Session) -> Optional[Transaction]:
@@ -73,8 +71,6 @@ def create_transaction(tx: Transaction, session: Session) -> Transaction:
     Create new transaction.
     """
     try:
-        tx.validate_tx_type()
-
         session.add(tx)
         session.commit()
         session.refresh(tx)

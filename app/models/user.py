@@ -4,7 +4,7 @@ from typing import Optional, List, TYPE_CHECKING
 
 from sqlmodel import SQLModel, Field, Relationship
 
-from constants import USER_ROLES
+from models.enum import UserRole
 
 if TYPE_CHECKING:
     from models.wallet import Wallet
@@ -19,7 +19,7 @@ class User(SQLModel, table=True):
         id (int): Primary key
         email (str): email пользователя (unique)
         password (str): пароль (упрощенно для задания)
-        role (str): USER / ADMIN
+        role (Enum): USER / ADMIN
         created_at (datetime): дата создания аккаунта (UTC)
         wallet (Optional[Wallet]): кошелек (только для USER)
         transactions (List[Transaction]): транзакции пользователя
@@ -37,7 +37,7 @@ class User(SQLModel, table=True):
         max_length=255,
     )
     password: str = Field(..., min_length=8, max_length=255)
-    role: str = Field(default="USER", index=True, max_length=16)
+    role: UserRole = Field(default=UserRole.USER, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # --- Relationships ---
@@ -66,7 +66,7 @@ class User(SQLModel, table=True):
     )
 
     def __str__(self) -> str:
-        return f"Id: {self.id}. Email: {self.email}. Role: {self.role}"
+        return f"Id: {self.id}. Email: {self.email}. Role: {self.role.value}" 
 
     def validate_email(self) -> bool:
         """
@@ -83,16 +83,6 @@ class User(SQLModel, table=True):
             raise ValueError("Некорректный email")
         return True
 
-    def validate_role(self) -> bool:
-        """
-        Validate user role.
-
-        Raises:
-            ValueError: If role is invalid
-        """
-        if self.role not in USER_ROLES:
-            raise ValueError("Некорректная роль")
-        return True
 
     def validate_wallet_consistency(self) -> bool:
         """

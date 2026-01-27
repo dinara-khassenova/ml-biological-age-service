@@ -1,6 +1,7 @@
 from typing import Any, Dict
 from ml.base import Predictor
 from models.assessment import AssessmentResult
+from models.enum import FactorGroup
 
 class BioAgePredictorStub(Predictor):
     """Заглушка предиктора (вместо реальной ML модели)."""
@@ -15,8 +16,18 @@ class BioAgePredictorStub(Predictor):
         glucose = float(glucose_raw) if isinstance(glucose_raw, (int, float)) else 5.2
 
         factors = [
-            {"name": "bmi", "value": bmi, "group": "NEUTRAL", "description": "ИМТ - в пределах нормы"},
-            {"name": "glucose", "value": glucose, "group": "POSITIVE", "description": "Глюкоза - оптимальная"},
+            {
+                "name": "bmi",
+                "value": bmi,
+                "group": FactorGroup.NEUTRAL.value,  
+                "description": "ИМТ - в пределах нормы",
+            },
+            {
+                "name": "glucose",
+                "value": glucose,
+                "group": FactorGroup.POSITIVE.value,  
+                "description": "Глюкоза - оптимальная",
+            },
         ]
 
         biological_age = age + (bmi - 22.0) * 0.5

@@ -5,7 +5,7 @@ from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import SQLModel, Field, Relationship
 
-from constants import TASK_STATUSES
+from models.enum import TaskStatus
 
 if TYPE_CHECKING:
     from models.user import User
@@ -50,7 +50,7 @@ class AssessmentTask(AssessmentTaskBase, table=True):
         answers (Dict[str, Any]): входные данные анкеты
         validation_errors (List[ValidationError]): ошибки валидации
         charged_amount (Optional[int]): сколько списали (фиксируем факт списания)
-        status (str): CREATED -> VALIDATED -> PROCESSING -> DONE / FAILED
+        status (Enum): CREATED -> VALIDATED -> PROCESSING -> DONE / FAILED
         result (Optional[AssessmentResult]): результат
         error_message (Optional[str]): текст ошибки выполнения (если FAILED)
         created_at (datetime): дата создания (UTC)
@@ -83,7 +83,10 @@ class AssessmentTask(AssessmentTaskBase, table=True):
 
     charged_amount: Optional[int] = Field(default=None)
 
-    status: str = Field(default="CREATED", index=True, max_length=32)
+    status: TaskStatus = Field(  
+        default=TaskStatus.CREATED,
+        index=True,
+    )
     error_message: Optional[str] = Field(default=None, max_length=500)
 
     created_at: datetime = Field(
@@ -101,19 +104,14 @@ class AssessmentTask(AssessmentTaskBase, table=True):
     def __str__(self) -> str:
         return (
             f"Task(id={self.id}, user_id={self.user_id}, "
-            f"model_id={self.model_id}, status={self.status})"
+            f"model_id={self.model_id}, status={self.status.value})"  
         )
 
     # Domain rules
 
-    def validate_status(self) -> bool:
-        if self.status not in TASK_STATUSES:
-            raise ValueError("Некорректный статус задачи")
-        return True
-
     def add_answer(self, field_name: str, value: Any) -> None:
         """Добавляет/обновляет одно поле анкеты."""
-        if self.status != "CREATED":
+        if self.status != TaskStatus.CREATED:
             raise ValueError("Нельзя изменять ответы после начала обработки")
         self.answers[field_name] = value
 
@@ -121,22 +119,22 @@ class AssessmentTask(AssessmentTaskBase, table=True):
         """
         Если данные невалидны — оставляем статус CREATED, чтобы пользователь мог поправить.
         """
-        if self.status != "CREATED":
+        if self.status != TaskStatus.CREATED:
             raise ValueError("Валидацию можно сохранить только в статусе CREATED")
 
         self.validation_errors = _validation_errors_to_json(errors)
-        self.status = "VALIDATED" if is_valid else "CREATED"
+        self.status = TaskStatus.VALIDATED if is_valid else TaskStatus.CREATED
 
     def start_processing(self) -> None:
-        if self.status != "VALIDATED":
+        if self.status != TaskStatus.VALIDATED:
             raise ValueError("start_processing() возможен только после успешной валидации")
-        self.status = "PROCESSING"
+        self.status = TaskStatus.PROCESSING
 
     def set_result(self, result: "AssessmentResult", charged_amount: int) -> None:
         """
         Фиксируем результат в JSON (для истории).
         """
-        if self.status != "PROCESSING":
+        if self.status != TaskStatus.PROCESSING:
             raise ValueError("set_result() только из PROCESSING")
         if charged_amount <= 0:
             raise ValueError("charged_amount должен быть > 0")
@@ -147,13 +145,17 @@ class AssessmentTask(AssessmentTaskBase, table=True):
             "validation_errors": list(result.validation_errors),
         }
         self.charged_amount = charged_amount
-        self.status = "DONE"
+        self.status = TaskStatus.DONE
 
     def set_error(self, message: str) -> None:
-        if self.status not in {"CREATED", "VALIDATED", "PROCESSING"}:
+        if self.status not in {  
+            TaskStatus.CREATED,
+            TaskStatus.VALIDATED,
+            TaskStatus.PROCESSING,
+        }:
             raise ValueError("set_error() допускается только из CREATED/VALIDATED/PROCESSING")
         self.error_message = message
-        self.status = "FAILED"
+        self.status = TaskStatus.FAILED
 
     class Config:
         validate_assignment = True
@@ -167,7 +169,7 @@ class AssessmentTaskCreate(AssessmentTaskBase):
 
 class AssessmentTaskUpdate(SQLModel):
     answers: Optional[Dict[str, Any]] = None
-    status: Optional[str] = None
+    status: Optional[TaskStatus] = None
     error_message: Optional[str] = None
 
     class Config:

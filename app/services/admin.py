@@ -6,6 +6,7 @@ from sqlmodel import Session
 
 from models.user import User
 from models.transaction import Transaction
+from models.enum import UserRole
 
 from services.billing import BillingService
 from services.crud import user as user_crud
@@ -25,7 +26,7 @@ class AdminService:
         admin = user_crud.get_user_by_id(admin_user_id, self.session)
         if admin is None:
             raise ValueError("Администратор не найден")
-        if admin.role != "ADMIN":
+        if admin.role != UserRole.ADMIN:
             raise PermissionError("Нужен ADMIN")
         return admin
 

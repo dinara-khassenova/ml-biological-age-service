@@ -4,6 +4,7 @@ from sqlmodel import Session
 
 from models.transaction import Transaction
 from models.wallet import Wallet
+from models.enum import TransactionType
 
 from services.crud import wallet as wallet_crud
 from services.crud import transaction as tx_crud
@@ -43,7 +44,7 @@ class BillingService:
         wallet.balance += amount
         wallet_crud.update_wallet(wallet, self.session)
 
-        tx = Transaction(user_id=user_id, tx_type="TOPUP", amount=amount)
+        tx = Transaction(user_id=user_id, tx_type=TransactionType.TOPUP, amount=amount)
         return tx_crud.create_transaction(tx, self.session)
 
     def charge_after_success(self, user_id: int, amount: int, task_id: int) -> Transaction:
@@ -62,7 +63,13 @@ class BillingService:
         wallet.balance -= amount
         wallet_crud.update_wallet(wallet, self.session)
 
-        tx = Transaction(user_id=user_id, tx_type="CHARGE", amount=amount, task_id=task_id)
+        tx = Transaction(  
+            user_id=user_id,
+            tx_type=TransactionType.CHARGE,
+            amount=amount,
+            task_id=task_id,
+        )
+        
         return tx_crud.create_transaction(tx, self.session)
 
 
