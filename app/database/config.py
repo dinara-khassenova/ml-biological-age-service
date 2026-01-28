@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     #  Application setting 
     APP_NAME:  Optional[str] = None
     DEBUG: Optional[bool] = None
+    APP_DESCRIPTION:  Optional[str] = None
     API_VERSION:  Optional[str] = None
     APP_HOST: Optional[str] = None
     APP_PORT: Optional[int] = None 
