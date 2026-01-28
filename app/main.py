@@ -1,3 +1,111 @@
+from __future__ import annotations
+
+from sqlmodel import Session
+
+from database.database import engine, init_db
+from services.auth import RegAuthService
+from services.billing import BillingService
+from services.task import TaskService
+from services.admin import AdminService
+from services.crud import transaction as tx_crud
+from models.assessment import AssessmentTask
+
+USER1_EMAIL = "user1@test.com"
+USER2_EMAIL = "user2@test.com"
+ADMIN_EMAIL = "admin@test.com"
+DEFAULT_PASSWORD = "password1"
+
+from models.enum import UserRole, TaskStatus
+
+def register_demo_users(auth: RegAuthService):
+    user1 = auth.register(email=USER1_EMAIL, password=DEFAULT_PASSWORD, role=UserRole.USER)
+    user2 = auth.register(email=USER2_EMAIL, password=DEFAULT_PASSWORD, role=UserRole.USER)
+    admin = auth.register(email=ADMIN_EMAIL, password=DEFAULT_PASSWORD, role=UserRole.ADMIN)
+    return user1, user2, admin
+
+
+def demo_scenario() -> None:
+    with Session(engine) as session:
+        auth = RegAuthService(session)
+        billing = BillingService(session)
+        task_service = TaskService(session, billing)
+        admin_service = AdminService(session, billing)
+
+        print("\n=== DEMO SCENARIO START ===")
+
+        # 1) Create demo users
+        user1, user2, admin = register_demo_users(auth)
+        print(f"[AUTH] USER1: id={user1.id}, email={user1.email}, role={user1.role.value}")  
+        print(f"[AUTH] USER2: id={user2.id}, email={user2.email}, role={user2.role.value}")  
+        print(f"[AUTH] ADMIN: id={admin.id}, email={admin.email}, role={admin.role.value}")  
+
+        # 2) Topup users
+        billing.topup(user1.id, amount=100)
+        billing.topup(user2.id, amount=50)
+        print("[BILLING] USER1 credited: +100")
+        print("[BILLING] USER2 credited: +50")
+
+        # 3) Balances before
+        print(f"[BALANCE] USER1 before: {billing.balance(user1.id)} credits")
+        print(f"[BALANCE] USER2 before: {billing.balance(user2.id)} credits")
+
+        # 4) Run tasks 
+        t1 = task_service.run_task(
+            AssessmentTask(
+                user_id=user1.id,
+                answers={"age": 40, "bmi": 26, "glucose": 5.1},
+            )
+        )
+        print(f"[TASK] USER1 status: {t1.status.value}")
+        if t1.status == TaskStatus.DONE:
+            print("[TASK] USER1 biological age:", t1.result.get("biological_age"))
+        else:
+            print("[TASK] USER1 error:", t1.error_message)
+
+        t2 = task_service.run_task(
+            AssessmentTask(
+                user_id=user2.id,
+                answers={"age": 32, "bmi": 24, "glucose": 4.8},
+            )
+        )
+        print(f"[TASK] USER2 status: {t2.status.value}")
+        if t2.status == TaskStatus.DONE:
+            print("[TASK] USER2 biological age:", t2.result.get("biological_age"))
+        else:
+            print("[TASK] USER2 error:", t2.error_message)
+
+        # 5) Balances after
+        print(f"[BALANCE] USER1 after: {billing.balance(user1.id)} credits")
+        print(f"[BALANCE] USER2 after: {billing.balance(user2.id)} credits")
+
+        # 6) User transactions
+        print("\n[TRANSACTIONS] USER1")
+        for tx in tx_crud.get_user_transactions(user1.id, session):
+            print(tx)
+
+        print("\n[TRANSACTIONS] USER2")
+        for tx in tx_crud.get_user_transactions(user2.id, session):
+            print(tx)
+
+        # 7) Admin: all transactions
+        print("\n[TRANSACTIONS] ALL (ADMIN VIEW)")
+        for tx in admin_service.all_transactions(admin.id):
+            print(tx)
+
+        print("\n=== DEMO SCENARIO END ===\n")
+
+
+def main() -> None:
+    print("Initializing database...")
+    init_db(drop_all=True)  # по лекции чистим БД перед каждой инициализацией
+    demo_scenario()
+
+
+if __name__ == "__main__":
+    main()
+
+
+'''
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from typing import Dict
@@ -46,3 +154,4 @@ if __name__ == "__main__":
         reload=True,
         log_level="debug",
     )
+'''

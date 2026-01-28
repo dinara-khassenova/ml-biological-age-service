@@ -1,12 +1,182 @@
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from constants import TASK_STATUSES
-from models.factor import Factor
-from models.validation import ValidationError
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import SQLModel, Field, Relationship
+
+from models.enum import TaskStatus
+
+if TYPE_CHECKING:
+    from models.user import User
+    from models.validation import ValidationError
+
+# Helpers
+
+def _validation_errors_to_json(errors: List["ValidationError"]) -> List[Dict[str, Any]]:
+    return [{"field_name": e.field_name, "message": e.message} for e in errors]
 
 
+# Runtime schema (not a DB table)
+
+class AssessmentResult(SQLModel):
+    """
+    Результат ML расчёта (не таблица).
+
+    Notes:
+        factors и validation_errors уже приходят в JSON-совместимом виде (list[dict]),
+    """
+    biological_age: float
+    factors: List[Dict[str, Any]] = Field(default_factory=list)
+    validation_errors: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+# DB entity
+
+class AssessmentTaskBase(SQLModel):
+    """Base-схема задачи. Пока по умолчанию одна модель."""
+    user_id: int = Field(foreign_key="users.id", index=True)
+    model_id: int = Field(default=1, foreign_key="ml_models.id", index=True)
+
+
+class AssessmentTask(AssessmentTaskBase, table=True):
+    """
+    Заявка пользователя на расчёт биологического возраста (таблица).
+
+    Attributes:
+        id (int): идентификатор задачи
+        user_id (int): идентификатор пользователя
+        model_id (int): идентификатор ML модели (по начинаем с одной модели)
+        answers (Dict[str, Any]): входные данные анкеты
+        validation_errors (List[ValidationError]): ошибки валидации
+        charged_amount (Optional[int]): сколько списали (фиксируем факт списания)
+        status (Enum): CREATED -> VALIDATED -> PROCESSING -> DONE / FAILED
+        result (Optional[AssessmentResult]): результат
+        error_message (Optional[str]): текст ошибки выполнения (если FAILED)
+        created_at (datetime): дата создания (UTC)
+
+    Правила:
+    - answers можно менять только в CREATED
+    - PROCESSING возможен только после VALIDATED
+    - списание фиксируем только при DONE (charged_amount)
+    """
+
+    __tablename__ = "assessment_tasks"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    answers: Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
+    )
+
+    validation_errors: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        sa_column=Column(JSONB, nullable=False),
+    )
+
+    # {"biological_age": float, "factors": [...], "validation_errors": [...]}
+    result: Optional[Dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
+
+    charged_amount: Optional[int] = Field(default=None)
+
+    status: TaskStatus = Field(  
+        default=TaskStatus.CREATED,
+        index=True,
+    )
+    error_message: Optional[str] = Field(default=None, max_length=500)
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+    # Relationships
+    user: "User" = Relationship(  # type: ignore
+    back_populates="tasks",
+    sa_relationship_kwargs={"lazy": "selectin"},
+    )
+
+
+    def __str__(self) -> str:
+        return (
+            f"Task(id={self.id}, user_id={self.user_id}, "
+            f"model_id={self.model_id}, status={self.status.value})"  
+        )
+
+    # Domain rules
+
+    def add_answer(self, field_name: str, value: Any) -> None:
+        """Добавляет/обновляет одно поле анкеты."""
+        if self.status != TaskStatus.CREATED:
+            raise ValueError("Нельзя изменять ответы после начала обработки")
+        self.answers[field_name] = value
+
+    def set_validation_result(self, is_valid: bool, errors: List["ValidationError"]) -> None:
+        """
+        Если данные невалидны — оставляем статус CREATED, чтобы пользователь мог поправить.
+        """
+        if self.status != TaskStatus.CREATED:
+            raise ValueError("Валидацию можно сохранить только в статусе CREATED")
+
+        self.validation_errors = _validation_errors_to_json(errors)
+        self.status = TaskStatus.VALIDATED if is_valid else TaskStatus.CREATED
+
+    def start_processing(self) -> None:
+        if self.status != TaskStatus.VALIDATED:
+            raise ValueError("start_processing() возможен только после успешной валидации")
+        self.status = TaskStatus.PROCESSING
+
+    def set_result(self, result: "AssessmentResult", charged_amount: int) -> None:
+        """
+        Фиксируем результат в JSON (для истории).
+        """
+        if self.status != TaskStatus.PROCESSING:
+            raise ValueError("set_result() только из PROCESSING")
+        if charged_amount <= 0:
+            raise ValueError("charged_amount должен быть > 0")
+
+        self.result = {
+            "biological_age": float(result.biological_age),
+            "factors": list(result.factors),
+            "validation_errors": list(result.validation_errors),
+        }
+        self.charged_amount = charged_amount
+        self.status = TaskStatus.DONE
+
+    def set_error(self, message: str) -> None:
+        if self.status not in {  
+            TaskStatus.CREATED,
+            TaskStatus.VALIDATED,
+            TaskStatus.PROCESSING,
+        }:
+            raise ValueError("set_error() допускается только из CREATED/VALIDATED/PROCESSING")
+        self.error_message = message
+        self.status = TaskStatus.FAILED
+
+    class Config:
+        validate_assignment = True
+        arbitrary_types_allowed = True
+
+
+
+class AssessmentTaskCreate(AssessmentTaskBase):
+    answers: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AssessmentTaskUpdate(SQLModel):
+    answers: Optional[Dict[str, Any]] = None
+    status: Optional[TaskStatus] = None
+    error_message: Optional[str] = None
+
+    class Config:
+        validate_assignment = True
+
+
+'''
 @dataclass
 class AssessmentResult:
     """
@@ -89,3 +259,4 @@ class AssessmentTask:
             raise ValueError("set_error() допускается только из CREATED/VALIDATED/PROCESSING")
         self.error_message = message
         self.status = "FAILED"
+'''

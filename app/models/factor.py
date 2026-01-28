@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from constants import FACTOR_GROUPS
+from models.enum import FactorGroup
 
 
 @dataclass(frozen=True)
@@ -12,14 +12,11 @@ class Factor:
     Attributes:
         name (str): название фактора
         value (Any): значение
-        group (str): NEGATIVE / NEUTRAL / POSITIVE
+        group (Enum): NEGATIVE / NEUTRAL / POSITIVE
         description (str): пояснение
     """
     name: str
     value: Any
-    group: str
+    group: FactorGroup  
     description: str
 
-    def __post_init__(self) -> None:
-        if self.group not in FACTOR_GROUPS:
-            raise ValueError("group должен быть 'NEGATIVE', 'NEUTRAL' или 'POSITIVE'")
