@@ -13,4 +13,4 @@ ENV PYTHONPATH=/app
 # Копирование исходников можно не делать, т.к. будет volume в compose.
 # COPY ./ /app
 
-CMD ["python", "main.py"]
+CMD ["python", "api.py"]
