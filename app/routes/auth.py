@@ -5,7 +5,9 @@ from sqlmodel import Session
 
 from database.database import get_session
 from services.auth import RegAuthService
-from schemas.auth import RegisterIn, LoginIn, UserOut, LoginOut
+from schemas.auth import RegisterIn, LoginIn, UserOut, TokenOut
+from services.security import create_access_token
+from fastapi.security import OAuth2PasswordRequestForm
 
 
 router = APIRouter()
@@ -22,13 +24,20 @@ def register(payload: RegisterIn, session: Session = Depends(get_session)) -> Us
         raise HTTPException(status_code=400, detail=str(ex))
 
 
-@router.post("/login", response_model=LoginOut)
-def login(payload: LoginIn, session: Session = Depends(get_session)) -> LoginOut:
+@router.post("/login", response_model=TokenOut)
+def login(
+    form: OAuth2PasswordRequestForm = Depends(),
+    session: Session = Depends(get_session),
+) -> TokenOut:
+    # form.username -> это то, что ты вводишь в поле username (у тебя это email)
     service = RegAuthService(session)
     try:
-        user = service.login(email=payload.email, password=payload.password)
+        user = service.login(email=form.username, password=form.password)
         if user.id is None:
             raise RuntimeError("User.id is None")
-        return LoginOut(user_id=user.id, role=user.role)
+
+        token = create_access_token(subject=str(user.id), role=user.role.value)
+        return TokenOut(access_token=token)
+
     except Exception as ex:
         raise HTTPException(status_code=403, detail=str(ex))

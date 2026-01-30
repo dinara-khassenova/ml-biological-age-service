@@ -21,8 +21,7 @@ class UserOut(BaseModel):
     role: UserRole
 
 
-class LoginOut(BaseModel):
-    message: str = "ok"
-    user_id: int
-    role: UserRole
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
 

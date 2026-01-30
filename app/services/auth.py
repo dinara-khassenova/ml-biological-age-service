@@ -37,6 +37,9 @@ class RegAuthService:
             self.session.add(user)
             self.session.flush()  # получаем user.id
 
+            if user.id is None:
+                raise RuntimeError("Не удалось получить user.id")
+
             if role == UserRole.USER: 
                 wallet = Wallet(user_id=user.id, balance=0)
                 self.session.add(wallet)
@@ -52,10 +55,8 @@ class RegAuthService:
     def login(self, email: str, password: str) -> User:
         email_norm = email.strip().lower()
         user = user_crud.get_user_by_email(email_norm, self.session)
-
         if user is None or user.password != password:
             raise ValueError("Неверный email или пароль")
-
         return user
 
 

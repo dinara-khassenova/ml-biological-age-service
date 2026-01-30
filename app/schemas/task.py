@@ -6,16 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from models.enum import TaskStatus
 
 class PredictIn(BaseModel):
-    user_id: int = Field(gt=0)
     model_id: int = Field(default=1, gt=0)
-    answers: Dict[str, Any]
+    answers: Dict[str, Any] = Field(default_factory=dict)
 
 
 class TaskDraftIn(BaseModel):
     '''
     Черновик ответов, можно создавать даже с пустыми answers
     '''
-    user_id: int = Field(gt=0)
     model_id: int = Field(default=1, gt=0)
     answers: Dict[str, Any] = Field(default_factory=dict)
 

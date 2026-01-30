@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     POSTGRES_USER: Optional[str] = None
     POSTGRES_PASSWORD: Optional[str] = None
 
+    # JWT settings for Bearer authentication 
+    JWT_SECRET_KEY: Optional[str] = None
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 60
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -53,6 +58,9 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Missing required database configuration"
             )
+        
+        if not self.JWT_SECRET_KEY:
+            raise ValueError("Missing JWT_SECRET_KEY in env")
 
 @lru_cache
 def get_settings() -> Settings:

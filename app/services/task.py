@@ -45,7 +45,7 @@ class TaskService:
         return task_crud.create_task(task, self.session)
     
 
-    def run_task_by_id(self, task_id: int) -> AssessmentTask:
+    def run_task_by_id(self, task_id: int, current_user_id: int, is_admin: bool = False) -> AssessmentTask:
         '''
         Запустить уже существующую задачу по id
         '''
@@ -53,6 +53,8 @@ class TaskService:
         if task is None:
             raise ValueError("Задача не найдена")
 
+        if (not is_admin) and (task.user_id != current_user_id):
+            raise PermissionError("Нет доступа к чужой задаче")
         
         if task.status in {TaskStatus.DONE, TaskStatus.FAILED}:
             raise ValueError(f"Нельзя запускать задачу в статусе {task.status.value}")
