@@ -1,15 +1,15 @@
 services:
   app:
-    build: ./app                    
+    build: ./app
     image: ml-service-app:latest
     container_name: ml-service-app
     restart: unless-stopped
     env_file:
-      - ./.env                  
+      - ./.env
     volumes:
-      - ./app:/app                  
+      - ./app:/app
     environment:
-      - PYTHONPATH=/app             
+      - PYTHONPATH=/app
     networks:
       - ml-service-network
     depends_on:
@@ -49,33 +49,73 @@ services:
     volumes:
       - rabbitmq_volume:/var/lib/rabbitmq
     networks:
-      - ml-service-network
+      - ml-service-network      
 
   postgres:
     image: postgres:16-alpine
     container_name: ml-service-postgres
     restart: unless-stopped
-    environment:                   
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres_volume:/var/lib/postgresql/data
     networks:
       - ml-service-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+
+  worker-1:
+    image: ml-service-app:latest
+    container_name: ml-service-worker-1
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      - WORKER_ID=worker-1          
+      - PYTHONPATH=/app
+    volumes:
+      - ./app:/app
+      - ./worker:/worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started  
+    networks:
+      - ml-service-network
+    command: ["python", "/worker/main.py"]
+
+  worker-2:
+    image: ml-service-app:latest
+    container_name: ml-service-worker-2
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      - WORKER_ID=worker-2         
+      - PYTHONPATH=/app
+    volumes:
+      - ./app:/app
+      - ./worker:/worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - ml-service-network
+    command: ["python", "/worker/main.py"]
 
 networks:
   ml-service-network:
     name: ml-service-network
     driver: bridge
 
-volumes:                                    
+volumes:
   postgres_volume:
   rabbitmq_volume:

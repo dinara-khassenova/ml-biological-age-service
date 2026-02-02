@@ -25,6 +25,9 @@ class RuntimeMLModel:
     validator: Validator = field(default_factory=BioAgeDataValidator)
     predictor: Predictor = field(default_factory=BioAgePredictorStub)
 
+    def __post_init__(self) -> None:
+        self.validator = BioAgeDataValidator(required_features=self.meta.feature_names)
+
     @property
     def id(self) -> int:
         if self.meta.id is None:

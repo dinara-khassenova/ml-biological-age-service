@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from sqlmodel import Session
 
+from uuid import uuid4
+
 from models.ml_model import MLModel
 from models.assessment import AssessmentTask
 from ml.runtime_model import RuntimeMLModel
@@ -37,11 +39,16 @@ class TaskService:
 
         return RuntimeMLModel(meta=meta)
     
+    def _ensure_external_id(self, task: AssessmentTask) -> None:
+        if not getattr(task, "external_id", None):
+            task.external_id = str(uuid4())
+    
     def create_draft(self, task: AssessmentTask) -> AssessmentTask:
         '''
         Просто создание задачи (черновик),
         Например, пользователь не до конца заполнил анкету и хочет сохранить драфт.
         '''
+        self._ensure_external_id(task)
         return task_crud.create_task(task, self.session)
     
 
@@ -74,7 +81,6 @@ class TaskService:
             return task_crud.update_task(task, self.session)
 
         # 3) валидация
-        # ! Примечание: Далее, возможно, будет смысл выделить отдельно валидация, при выполнении следующего ДЗ
         ok, errors = model.validate(task.answers)
         task.set_validation_result(ok, errors)
         task = task_crud.update_task(task, self.session)

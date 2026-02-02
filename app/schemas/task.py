@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,10 +20,16 @@ class TaskDraftIn(BaseModel):
     answers: Dict[str, Any] = Field(default_factory=dict)
 
 
+# по заданию /predict возвращает только task_id (uuid)
+class PredictOut(BaseModel):
+    task_id: str
+
+
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    external_id: str
+    
     user_id: int
     model_id: int
     status: TaskStatus
@@ -29,6 +37,7 @@ class TaskOut(BaseModel):
     validation_errors: List[Dict[str, Any]] = Field(default_factory=list)
     result: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
+    worker_id: Optional[str] = None
 
 
 TaskHistoryOut = TaskOut
