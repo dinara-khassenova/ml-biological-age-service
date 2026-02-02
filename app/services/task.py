@@ -9,6 +9,7 @@ from ml.runtime_model import RuntimeMLModel
 from services.billing import BillingService
 import services.crud.task as task_crud
 import services.crud.ml_model as ml_model_crud
+from models.enum import TaskStatus
 
 
 class TaskService:
@@ -35,21 +36,45 @@ class TaskService:
             meta.validate_meta()
 
         return RuntimeMLModel(meta=meta)
+    
+    def create_draft(self, task: AssessmentTask) -> AssessmentTask:
+        '''
+        Просто создание задачи (черновик),
+        Например, пользователь не до конца заполнил анкету и хочет сохранить драфт.
+        '''
+        return task_crud.create_task(task, self.session)
+    
 
-    def run_task(self, task: AssessmentTask) -> AssessmentTask:
-        # 0) сохраняем задачу сразу (история входных данных)
-        task = task_crud.create_task(task, self.session)
+    def run_task_by_id(self, task_id: int, current_user_id: int, is_admin: bool = False) -> AssessmentTask:
+        '''
+        Запустить уже существующую задачу по id
+        '''
+        task = task_crud.get_task_by_id(task_id, self.session)
+        if task is None:
+            raise ValueError("Задача не найдена")
 
-        # 1) загружаем модель (по умолчанию model_id=1)
+        if (not is_admin) and (task.user_id != current_user_id):
+            raise PermissionError("Нет доступа к чужой задаче")
+        
+        if task.status in {TaskStatus.DONE, TaskStatus.FAILED}:
+            raise ValueError(f"Нельзя запускать задачу в статусе {task.status.value}")
+        
+        return self._process(task)
+        
+
+    def _process(self, task: AssessmentTask) -> AssessmentTask:
+        '''
+        Общая логика обработки (раньше это было в run_task)
+        '''
         model = self._load_runtime_model(task.model_id)
 
         # 2) проверка баланса ДО запуска
         if not self.billing.can_pay(task.user_id, model.price_per_task):
             task.set_error("Недостаточно средств")
-            task = task_crud.update_task(task, self.session)
-            return task
+            return task_crud.update_task(task, self.session)
 
         # 3) валидация
+        # ! Примечание: Далее, возможно, будет смысл выделить отдельно валидация, при выполнении следующего ДЗ
         ok, errors = model.validate(task.answers)
         task.set_validation_result(ok, errors)
         task = task_crud.update_task(task, self.session)
@@ -61,25 +86,28 @@ class TaskService:
         try:
             task.start_processing()
             task = task_crud.update_task(task, self.session)
-
             result = model.predict(task.answers)
         except Exception as ex:
             task.set_error(f"Ошибка предсказания: {ex}")
-            task = task_crud.update_task(task, self.session)
-            return task
+            return task_crud.update_task(task, self.session)
 
         # 5) успех -> списание + транзакция + фиксация charged_amount
         try:
             self.billing.charge_after_success(task.user_id, model.price_per_task, task.id)
         except Exception as ex:
             task.set_error(f"Не удалось списать кредиты: {ex}")
-            task = task_crud.update_task(task, self.session)
-            return task
+            return task_crud.update_task(task, self.session)
 
         task.set_result(result, charged_amount=model.price_per_task)
-        task = task_crud.update_task(task, self.session)
-        return task
+        return task_crud.update_task(task, self.session)
 
+
+    def run_task(self, task: AssessmentTask) -> AssessmentTask:
+        '''
+        Run task оставили как shortcut (create + run)
+        '''
+        task = task_crud.create_task(task, self.session)
+        return self._process(task)
 
 
 

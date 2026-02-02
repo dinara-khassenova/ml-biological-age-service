@@ -17,7 +17,7 @@ class Transaction(SQLModel, table=True):
     Attributes:
         id (int): Primary key
         user_id (int): идентификатор пользователя (FK → users.id)
-        tx_type (str): тип операции (TOPUP / CHARGE)
+        tx_type (Enum): тип операции (TOPUP / CHARGE)
         amount (int): сумма в кредитах (> 0)
         task_id (Optional[int]): ссылка на задачу (для CHARGE)
         created_at (datetime): дата/время транзакции (UTC)
@@ -47,8 +47,10 @@ class Transaction(SQLModel, table=True):
 )
 
     def __str__(self) -> str:
-        return f"Tx(id={self.id}, user_id={self.user_id}, type={self.tx_type}, amount={self.amount}, task_id={self.task_id})"
-
+        return (
+            f"Tx(id={self.id}, user_id={self.user_id}, "
+            f"type={self.tx_type.value}, amount={self.amount}, task_id={self.task_id})"
+        )
     
     @property
     def is_charge(self) -> bool:
