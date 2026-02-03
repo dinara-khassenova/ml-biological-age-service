@@ -10,10 +10,9 @@
 ## Что реализовано по **Заданию #5** Урок 5: Способы взаимодействия с ML сервисами:
 
 - Реализовано асинхронное взаимодействие по модели **publisher → RabbitMQ → consumers**:
-  - Используется одна очередь RabbitMQ (ml_tasks)
-  - Реализованы несколько ML-воркеров (2 consumers):
-    **worker-1**
-    **worker-2**
+  - Используется одна очередь RabbitMQ (`ml_tasks`)
+  - Реализован один сервис ML-воркера, масштабируемый горизонтально
+    (запуск нескольких consumers через `docker compose --scale worker=2`)
 - Воркеры:
   - получают ML-задачи из очереди;
   - валидируют входные данные;
@@ -90,7 +89,10 @@ ml-biological-age-service/
 │   ├── .env.template
 │   ├── Dockerfile
 │   └── requirements.txt
-├── worker/                     # ML воркеры
+├── worker/                     # ML воркер
+│   ├── Dockerfile
+│   ├── main.py  
+│   └── requirements.txt
 ├── nginx/
 ├── .gitignore
 ├── docker-compose.yaml
@@ -102,7 +104,7 @@ ml-biological-age-service/
 
 ## Запуск через Docker Compose
 ```bash
-docker compose up --build
+docker compose up --build --scale worker=2
 ```
 
 ---

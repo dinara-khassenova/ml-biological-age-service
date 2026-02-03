@@ -69,47 +69,27 @@ services:
       timeout: 5s
       retries: 5
 
-  worker-1:
-    image: ml-service-app:latest
-    container_name: ml-service-worker-1
+  worker:
+    build: ./worker                 # отдельный Dockerfile, расширение через --scale 
     restart: unless-stopped
     env_file:
       - ./.env
     environment:
-      - WORKER_ID=worker-1          
       - PYTHONPATH=/app
     volumes:
-      - ./app:/app
+      # подключаем нужный общий код
+      - ./app/models:/app/models
+      - ./app/services:/app/services
+      - ./app/ml:/app/ml
+      - ./app/database:/app/database
       - ./worker:/worker
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_started  
+        condition: service_started 
     networks:
       - ml-service-network
-    command: ["python", "/worker/main.py"]
-
-  worker-2:
-    image: ml-service-app:latest
-    container_name: ml-service-worker-2
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    environment:
-      - WORKER_ID=worker-2         
-      - PYTHONPATH=/app
-    volumes:
-      - ./app:/app
-      - ./worker:/worker
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_started
-    networks:
-      - ml-service-network
-    command: ["python", "/worker/main.py"]
 
 networks:
   ml-service-network:

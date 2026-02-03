@@ -7,8 +7,8 @@ import time
 from typing import Any, Dict
 
 import pika
-import socket
 from sqlmodel import Session
+import socket
 
 from database.database import engine
 from models.assessment import AssessmentResult
@@ -45,12 +45,7 @@ def _validation_errors_to_dict(errors: list[Any]) -> list[dict]:
 
 def main() -> None:
 
-    worker_id = os.getenv("WORKER_ID")
-    if not worker_id:
-        raise RuntimeError("WORKER_ID is required. Set it in docker-compose.yml (e.g. worker-1).")
-    
-    print(f"[DEBUG] Starting with WORKER_ID={worker_id}", flush=True)
-    
+    worker_id = socket.gethostname()
     queue = os.getenv("RABBITMQ_QUEUE", "ml_tasks")
     prefetch = int(os.getenv("RABBITMQ_PREFETCH", "1"))
 
