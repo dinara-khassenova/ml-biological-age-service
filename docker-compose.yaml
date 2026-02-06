@@ -1,15 +1,15 @@
 services:
   app:
-    build: ./app                    
+    build: ./app
     image: ml-service-app:latest
     container_name: ml-service-app
     restart: unless-stopped
     env_file:
-      - ./.env                  
+      - ./.env
     volumes:
-      - ./app:/app                  
+      - ./app:/app
     environment:
-      - PYTHONPATH=/app             
+      - PYTHONPATH=/app
     networks:
       - ml-service-network
     depends_on:
@@ -49,33 +49,53 @@ services:
     volumes:
       - rabbitmq_volume:/var/lib/rabbitmq
     networks:
-      - ml-service-network
+      - ml-service-network      
 
   postgres:
     image: postgres:16-alpine
     container_name: ml-service-postgres
     restart: unless-stopped
-    environment:                   
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres_volume:/var/lib/postgresql/data
     networks:
       - ml-service-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+
+  worker:
+    build: ./worker                 # отдельный Dockerfile, расширение через --scale 
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      # подключаем нужный общий код
+      - ./app/models:/app/models
+      - ./app/services:/app/services
+      - ./app/ml:/app/ml
+      - ./app/database:/app/database
+      - ./worker:/worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started 
+    networks:
+      - ml-service-network
 
 networks:
   ml-service-network:
     name: ml-service-network
     driver: bridge
 
-volumes:                                    
+volumes:
   postgres_volume:
   rabbitmq_volume:

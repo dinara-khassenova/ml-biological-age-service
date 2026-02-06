@@ -20,6 +20,15 @@ def get_task_by_id(task_id: int, session: Session) -> Optional[AssessmentTask]:
     return session.exec(statement).first()
 
 
+def get_task_by_external_id(external_id: str, session: Session) -> Optional[AssessmentTask]:
+    statement = (
+        select(AssessmentTask)
+        .where(AssessmentTask.external_id == external_id)
+        .options(selectinload(AssessmentTask.user))
+    )
+    return session.exec(statement).first()
+
+
 def get_user_tasks(user_id: int, session: Session) -> List[AssessmentTask]:
     """
     Get tasks for a user.

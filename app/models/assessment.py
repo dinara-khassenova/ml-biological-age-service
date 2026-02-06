@@ -65,6 +65,9 @@ class AssessmentTask(AssessmentTaskBase, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    # внешний task_id (uuid)
+    external_id: str = Field(index=True, unique=True)
+
     answers: Dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSONB, nullable=False),
@@ -89,6 +92,9 @@ class AssessmentTask(AssessmentTaskBase, table=True):
     )
     error_message: Optional[str] = Field(default=None, max_length=500)
 
+    # Worker Id чтобы видеть, какой consumer обработал задачу 
+    worker_id: Optional[str] = Field(default=None, max_length=100)
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         index=True,
@@ -103,8 +109,8 @@ class AssessmentTask(AssessmentTaskBase, table=True):
 
     def __str__(self) -> str:
         return (
-            f"Task(id={self.id}, user_id={self.user_id}, "
-            f"model_id={self.model_id}, status={self.status.value})"  
+            f"Task(id={self.id}, external_id={self.external_id}, user_id={self.user_id}, "
+            f"model_id={self.model_id}, status={self.status.value})"
         )
 
     # Domain rules
@@ -171,6 +177,7 @@ class AssessmentTaskUpdate(SQLModel):
     answers: Optional[Dict[str, Any]] = None
     status: Optional[TaskStatus] = None
     error_message: Optional[str] = None
+    worker_id: Optional[str] = None
 
     class Config:
         validate_assignment = True
