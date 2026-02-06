@@ -1,0 +1,35 @@
+{
+  "model_type": "Ridge Regression",
+  "target": "Age (years)",
+  "features": [
+    "Height (cm)",
+    "Weight (kg)",
+    "BMI",
+    "Cholesterol Level (mg/dL)",
+    "Blood Glucose Level (mg/dL)",
+    "Stress Levels",
+    "Vision Sharpness",
+    "Hearing Ability (dB)",
+    "Bone Density (g/cm²)",
+    "BP_Systolic",
+    "BP_Diastolic"
+  ],
+  "metrics": {
+    "mae": 4.268603929454813,
+    "r2": 0.929138892765056
+  },
+  "coefficients": {
+    "Height (cm)": -0.9859669940328168,
+    "Weight (kg)": 1.6973292103510782,
+    "BMI": -1.7257561839173898,
+    "Cholesterol Level (mg/dL)": 0.7946680931345563,
+    "Blood Glucose Level (mg/dL)": 0.6116120061170521,
+    "Stress Levels": 0.016595166065555195,
+    "Vision Sharpness": -6.138079281188483,
+    "Hearing Ability (dB)": 2.028850410996613,
+    "Bone Density (g/cm²)": -10.543086962986528,
+    "BP_Systolic": 1.5755398541495755,
+    "BP_Diastolic": 1.3673273719452586
+  },
+  "notes": "Numeric-only model trained on processed dataset. Blood pressure split into systolic/diastolic. Coefficients are global and used for per-request interpretation."
+}

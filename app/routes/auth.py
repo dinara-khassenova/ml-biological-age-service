@@ -29,7 +29,6 @@ def login(
     form: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session),
 ) -> TokenOut:
-    # form.username -> это то, что ты вводишь в поле username (у тебя это email)
     service = RegAuthService(session)
     try:
         user = service.login(email=form.username, password=form.password)

@@ -10,6 +10,7 @@ from routes.home import router as home_router
 from routes.auth import router as auth_router
 from routes.wallet import router as wallet_router
 from routes.task import router as tasks_router
+from routes.ml_model import router as ml_models_router
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ def create_application() -> FastAPI:
     app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
     app.include_router(wallet_router, prefix="/api/wallet", tags=["Wallet"])
     app.include_router(tasks_router, prefix="/api/tasks", tags=["Tasks"])
+    app.include_router(ml_models_router, prefix="/api/ml-models", tags=["ML Models"])
 
     return app
 
