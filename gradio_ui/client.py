@@ -148,6 +148,12 @@ class BackendClient:
     def topup(self, token: str, amount: int) -> Dict[str, Any]:
         r = self._request("POST", "/api/wallet/topup", token=token, json={"amount": amount})
         return r.json()
+    
+    # transactions history
+    def get_transactions(self, token: str, limit: int = 20) -> List[Dict[str, Any]]:
+        r = self._request("GET", f"/api/wallet/transactions?limit={int(limit)}", token=token)
+        payload = r.json()
+        return payload.get("items", [])
 
     # ---------- TASKS ----------
     def predict(self, token: str, answers: Dict[str, Any], model_id: Optional[int] = None) -> str:
