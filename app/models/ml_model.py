@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import JSON
 from sqlmodel import SQLModel, Field
 
 
@@ -33,7 +34,7 @@ class MLModel(SQLModel, table=True):
 
     feature_names: List[str] = Field(
         default_factory=list,
-        sa_column=Column(JSONB, nullable=False),
+        sa_column=Column(JSONB().with_variant(JSON(), "sqlite"), nullable=False),
     )
 
     def __str__(self) -> str:
