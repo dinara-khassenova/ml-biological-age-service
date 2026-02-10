@@ -2,10 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /worker
 
-COPY requirements.txt /worker/requirements.txt
-
+COPY requirements.txt /worker/
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/worker
 
 CMD ["python", "main.py"]

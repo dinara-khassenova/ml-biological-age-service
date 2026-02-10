@@ -10,7 +10,10 @@ class Settings(BaseSettings):
     APP_DESCRIPTION:  Optional[str] = None
     API_VERSION:  Optional[str] = None
     APP_HOST: Optional[str] = None
-    APP_PORT: Optional[int] = None 
+    APP_PORT: Optional[int] = None
+
+    #  ML
+    DEFAULT_MODEL_ID: int = 1
 
     #  Database setting  
     POSTGRES_HOST: Optional[str] = None

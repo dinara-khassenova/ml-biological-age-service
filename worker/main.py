@@ -4,11 +4,11 @@ import json
 import os
 import sys
 import time
+import socket
 from typing import Any, Dict
 
 import pika
 from sqlmodel import Session
-import socket
 
 from database.database import engine
 from models.assessment import AssessmentResult
@@ -34,17 +34,11 @@ def _connect() -> pika.BlockingConnection:
 def _validation_errors_to_dict(errors: list[Any]) -> list[dict]:
     out: list[dict] = []
     for e in errors:
-        out.append(
-            {
-                "field_name": getattr(e, "field_name", "unknown"),
-                "message": getattr(e, "message", str(e)),
-            }
-        )
+        out.append({"field_name": getattr(e, "field_name", "unknown"), "message": getattr(e, "message", str(e))})
     return out
 
 
 def main() -> None:
-
     worker_id = socket.gethostname()
     queue = os.getenv("RABBITMQ_QUEUE", "ml_tasks")
     prefetch = int(os.getenv("RABBITMQ_PREFETCH", "1"))
@@ -59,6 +53,7 @@ def main() -> None:
             print(f"[{worker_id}] started; queue={queue}; prefetch={prefetch}", flush=True)
 
             def on_message(channel: pika.channel.Channel, method, properties, body: bytes) -> None:
+                external_id: str | None = None
                 try:
                     payload: Dict[str, Any] = json.loads(body.decode("utf-8"))
                     external_id = str(payload["task_id"])
@@ -76,12 +71,19 @@ def main() -> None:
                             return
 
                         meta = ml_model_crud.get_model_by_id(task.model_id, session)
-                        runtime = RuntimeMLModel(meta=meta) if meta else None
+                        if meta is None:
+                            task.worker_id = worker_id
+                            task.set_error("ML модель не найдена")
+                            task_crud.update_task(task, session)
+                            channel.basic_ack(delivery_tag=method.delivery_tag)
+                            return
+
+                        runtime = RuntimeMLModel(meta=meta)
 
                         features = dict(task.answers or {})
 
-                        # валидация 
-                        ok, errors_obj = runtime.validate(features) if runtime else (True, [])
+                        # валидация
+                        ok, errors_obj = runtime.validate(features)
                         errors = _validation_errors_to_dict(errors_obj)
 
                         if errors:
@@ -93,7 +95,7 @@ def main() -> None:
                             return
 
                         # баланс
-                        price = int(meta.price_per_task) if meta else 1
+                        price = int(meta.price_per_task)
                         if not billing.can_pay(task.user_id, price):
                             task.worker_id = worker_id
                             task.set_error("Недостаточно средств")
@@ -107,9 +109,8 @@ def main() -> None:
                         task.worker_id = worker_id
                         task_crud.update_task(task, session)
 
-                        result: AssessmentResult = runtime.predict(features) if runtime else AssessmentResult(
-                            biological_age=0.0, factors=[], validation_errors=[]
-                        )
+                        # predict
+                        result: AssessmentResult = runtime.predict(features)
 
                         # списание строго после успеха
                         if task.charged_amount is None:
@@ -124,6 +125,19 @@ def main() -> None:
                     print(f"[{worker_id}] ok task_id={external_id}", flush=True)
 
                 except Exception as ex:
+                    # 1) Не оставляем задачу в PROCESSING
+                    if external_id:
+                        try:
+                            with Session(engine) as session:
+                                task = task_crud.get_task_by_external_id(external_id, session)
+                                if task and task.status not in {TaskStatus.DONE, TaskStatus.FAILED}:
+                                    task.worker_id = worker_id
+                                    task.set_error(str(ex))
+                                    task_crud.update_task(task, session)
+                        except Exception as ex2:
+                            print(f"[{worker_id}] failed to mark task FAILED: {ex2}", file=sys.stderr, flush=True)
+
+                    # 2) Сообщение из очереди — не перекидываем по кругу
                     channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
                     print(f"[{worker_id}] failed: {ex}", file=sys.stderr, flush=True)
 
@@ -137,5 +151,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
