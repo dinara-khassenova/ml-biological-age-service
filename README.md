@@ -116,7 +116,7 @@ ml-biological-age-service/
 │   │   ├── admin.py
 │   │   ├── auth.py
 │   │   ├── billing.py
-│   │   └── task.
+│   │   └── task.py
 │   ├── tests/
 │   ├── api.py
 │   ├── main.py                # Демо-сценарий 3-его задания
