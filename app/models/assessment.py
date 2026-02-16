@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import JSON
 from sqlmodel import SQLModel, Field, Relationship
 
 from models.enum import TaskStatus
@@ -56,17 +57,17 @@ class AssessmentTask(AssessmentTaskBase, table=True):
 
     answers: Dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(JSONB, nullable=False),
+        sa_column=Column(JSONB().with_variant(JSON(), "sqlite"), nullable=False),
     )
 
     validation_errors: List[Dict[str, Any]] = Field(
         default_factory=list,
-        sa_column=Column(JSONB, nullable=False),
+        sa_column=Column(JSONB().with_variant(JSON(), "sqlite"), nullable=False),
     )
 
     result: Optional[Dict[str, Any]] = Field(
         default=None,
-        sa_column=Column(JSONB, nullable=True),
+        sa_column=Column(JSONB().with_variant(JSON(), "sqlite"), nullable=False),
     )
 
     charged_amount: Optional[int] = Field(default=None)
